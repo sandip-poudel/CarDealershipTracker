@@ -1,108 +1,106 @@
-package org.example;
+package org.example; // Declares the package name
 
-import com.fasterxml.jackson.databind.*;
-import java.io.File;
-import java.io.IOException;
-import java.util.*;
+import com.fasterxml.jackson.databind.*; // Imports Jackson's ObjectMapper and related classes
+import java.io.File; // Imports File class for file operations
+import java.io.IOException; // Imports IOException for handling IO exceptions
+import java.util.*; // Imports utility classes like List, ArrayList, Map, HashMap, etc.
 
 public class JSONFileHandler {
-    private final ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper; // Declares an ObjectMapper instance to handle JSON processing
 
     public JSONFileHandler() {
-        objectMapper = new ObjectMapper();
-        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        objectMapper.configure(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES, true);
-        objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
+        objectMapper = new ObjectMapper(); // Initializes the ObjectMapper instance
+        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false); // Allows deserialization even if unknown properties exist
+        objectMapper.configure(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES, true); // Enables case-insensitive property mapping
+        objectMapper.enable(SerializationFeature.INDENT_OUTPUT); // Enables pretty-printing of JSON output
     }
 
+    // Reads vehicle inventory from a JSON file and returns a list of Vehicle objects
     public List<Vehicle> readInventory(File file) {
         try {
-            if (!file.exists()) {
-                return new ArrayList<>();
+            if (!file.exists()) { // Checks if the file exists
+                return new ArrayList<>(); // Returns an empty list if the file does not exist
             }
-            JsonNode rootNode = objectMapper.readTree(file);
-            JsonNode inventory = rootNode.get("car_inventory");
-            if (inventory == null) return Collections.emptyList();
+            JsonNode rootNode = objectMapper.readTree(file); // Parses JSON file into a JsonNode
+            JsonNode inventory = rootNode.get("car_inventory"); // Extracts the "car_inventory" node
+            if (inventory == null) return Collections.emptyList(); // Returns empty list if "car_inventory" is not found
 
-            List<Vehicle> vehicles = new ArrayList<>();
-            for (JsonNode node : inventory) {
-                // Infer vehicle type from the model
-                Vehicle vehicle = inferVehicleType(node);
-                if (vehicle != null) {
-                    vehicles.add(vehicle);
+            List<Vehicle> vehicles = new ArrayList<>(); // Initializes a list to store Vehicle objects
+            for (JsonNode node : inventory) { // Iterates through each JSON node in "car_inventory"
+                Vehicle vehicle = inferVehicleType(node); // Infers the vehicle type based on model name
+                if (vehicle != null) { // Checks if a valid vehicle object was created
+                    vehicles.add(vehicle); // Adds the vehicle to the list
                 }
             }
-            return vehicles;
-        } catch (IOException e) {
-            e.printStackTrace();
-            return Collections.emptyList();
+            return vehicles; // Returns the list of vehicles
+        } catch (IOException e) { // Catches any IO exception
+            e.printStackTrace(); // Prints stack trace for debugging
+            return Collections.emptyList(); // Returns an empty list in case of an error
         }
     }
 
+    // Infers the type of vehicle based on the model name
     private Vehicle inferVehicleType(JsonNode node) {
         try {
-            String model = node.get("vehicle_model").asText().toLowerCase();
-            Vehicle vehicle;
+            String model = node.get("vehicle_model").asText().toLowerCase(); // Extracts and converts model name to lowercase
+            Vehicle vehicle; // Declares a Vehicle object
 
-            // Infer type based on model
+            // Determines the vehicle type based on model name
             if (model.contains("cr-v") || model.contains("explorer")) {
-                vehicle = new SUV();
+                vehicle = new SUV(); // Assigns an SUV instance if model matches
             } else if (model.contains("model 3")) {
-                vehicle = new Sedan();
+                vehicle = new Sedan(); // Assigns a Sedan instance if model matches
             } else if (model.contains("silverado")) {
-                vehicle = new Pickup();
+                vehicle = new Pickup(); // Assigns a Pickup instance if model matches
             } else if (model.contains("supra")) {
-                vehicle = new SportsCar();
+                vehicle = new SportsCar(); // Assigns a SportsCar instance if model matches
             } else {
-                // Default to SUV if can't determine
-                vehicle = new SUV();
+                vehicle = new SUV(); // Defaults to an SUV if model type is unknown
             }
 
-            // Set all the properties
-            vehicle.setVehicleId(node.get("vehicle_id").asText());
-            vehicle.setManufacturer(node.get("vehicle_manufacturer").asText());
-            vehicle.setModel(node.get("vehicle_model").asText());
-            vehicle.setPrice(node.get("price").asDouble());
-            vehicle.setDealerId(node.get("dealership_id").asText());
-            vehicle.setAcquisitionDate(new Date(node.get("acquisition_date").asLong()));
+            // Sets vehicle properties from the JSON node
+            vehicle.setVehicleId(node.get("vehicle_id").asText()); // Sets vehicle ID
+            vehicle.setManufacturer(node.get("vehicle_manufacturer").asText()); // Sets manufacturer name
+            vehicle.setModel(node.get("vehicle_model").asText()); // Sets vehicle model
+            vehicle.setPrice(node.get("price").asDouble()); // Sets vehicle price
+            vehicle.setDealerId(node.get("dealership_id").asText()); // Sets dealership ID
+            vehicle.setAcquisitionDate(new Date(node.get("acquisition_date").asLong())); // Sets acquisition date
 
-            return vehicle;
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
+            return vehicle; // Returns the created vehicle object
+        } catch (Exception e) { // Catches any exception
+            e.printStackTrace(); // Prints stack trace for debugging
+            return null; // Returns null if an error occurs
         }
     }
 
+    // Writes the vehicle inventory to a JSON file
     public void writeInventory(List<Vehicle> vehicles, File file) {
         try {
-            // Read existing inventory
-            List<Vehicle> existingVehicles = readInventory(file);
+            List<Vehicle> existingVehicles = readInventory(file); // Reads existing inventory
+            Map<String, Map<String, Object>> vehicleMap = new HashMap<>(); // Initializes a map to store unique vehicles
 
-            // Create a map to track unique vehicle IDs
-            Map<String, Map<String, Object>> vehicleMap = new HashMap<>();
-
-            // Convert vehicles to maps and store them
+            // Converts each vehicle object into a map and stores it in the vehicleMap
             for (Vehicle vehicle : vehicles) {
-                Map<String, Object> vehicleData = new HashMap<>();
-                vehicleData.put("vehicle_id", vehicle.getVehicleId());
-                vehicleData.put("vehicle_manufacturer", vehicle.getManufacturer());
-                vehicleData.put("vehicle_model", vehicle.getModel());
-                vehicleData.put("acquisition_date", vehicle.getAcquisitionDate().getTime());
-                vehicleData.put("price", vehicle.getPrice());
-                vehicleData.put("dealership_id", vehicle.getDealerId());
+                Map<String, Object> vehicleData = new HashMap<>(); // Initializes a map for vehicle properties
+                vehicleData.put("vehicle_id", vehicle.getVehicleId()); // Stores vehicle ID
+                vehicleData.put("vehicle_manufacturer", vehicle.getManufacturer()); // Stores manufacturer
+                vehicleData.put("vehicle_model", vehicle.getModel()); // Stores model name
+                vehicleData.put("acquisition_date", vehicle.getAcquisitionDate().getTime()); // Stores acquisition date as timestamp
+                vehicleData.put("price", vehicle.getPrice()); // Stores vehicle price
+                vehicleData.put("dealership_id", vehicle.getDealerId()); // Stores dealership ID
 
-                vehicleMap.put(vehicle.getVehicleId(), vehicleData);
+                vehicleMap.put(vehicle.getVehicleId(), vehicleData); // Stores the vehicle data in the map
             }
 
-            // Create wrapper map and write to file
+            // Creates a wrapper map with "car_inventory" key
             Map<String, List<Map<String, Object>>> wrapper = new HashMap<>();
-            wrapper.put("car_inventory", new ArrayList<>(vehicleMap.values()));
-            objectMapper.writeValue(file, wrapper);
-        } catch (IOException e) {
-            e.printStackTrace();
+            wrapper.put("car_inventory", new ArrayList<>(vehicleMap.values())); // Adds all unique vehicle entries to the wrapper
+            objectMapper.writeValue(file, wrapper); // Writes the inventory to the JSON file
+        } catch (IOException e) { // Catches any IO exception
+            e.printStackTrace(); // Prints stack trace for debugging
         }
     }
 }
 
-// This code is partially generated by claude.ai sonnet 3.5 AI model
-// Edited by Sandip Poudel
+// This code is partially generated by claude.ai Sonnet 3.5 version
+// Original Author: Sandip Poudel
