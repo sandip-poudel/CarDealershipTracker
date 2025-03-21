@@ -1,232 +1,378 @@
 package org.example;
 
-import javax.swing.*;
-import java.awt.*;
+import javafx.application.Application;
+import javafx.collections.FXCollections;
+import javafx.geometry.Insets;
+import javafx.scene.Scene;
+import javafx.scene.control.*;
+import javafx.scene.layout.*;
+import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.stage.FileChooser;
+import javafx.stage.Stage;
+
 import java.io.File;
+import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.awt.event.ActionListener;
+import java.util.Optional;
 
 /**
- * DealershipGUI class provides a graphical user interface for managing vehicle dealership operations.
- * This class handles all user interactions, input validation, and visual display of dealership data.
- * The GUI allows users to add/remove vehicles, enable/disable dealer acquisition, and manage inventory files.
+ * DealershipJavaFXGUI class provides a JavaFX-based graphical user interface for managing
+ * vehicle dealership operations. This class handles all user interactions, input validation,
+ * and visual display of dealership data.
  */
-public class DealershipGUI extends JFrame {
-    // Constants for file paths and colors - Added for better maintainability
+public class DealershipJavaFXGUI extends Application {
+    // Constants for file paths and colors
     private static final String INVENTORY_PATH = "src/main/resources/inventory.json";
     private static final String EXPORT_PATH = "src/main/resources/export.json";
-    private static final Color HEADER_COLOR = new Color(0, 100, 200);
+    private static final String APP_TITLE = "Dealership Management System";
+    private static final Color THEME_COLOR = Color.DODGERBLUE; // Main theme color
 
     // Core business logic manager
-    private final DealershipManager manager;
+    private DealershipManager manager;
 
-    // Input fields stored in a list for easier management - Improvement for maintainability
-    private final ArrayList<JTextField> inputFields = new ArrayList<>();
+    // Input fields
+    private TextField dealerIdField;
+    private ComboBox<String> dealerIdComboBox;
+    private ComboBox<String> vehicleTypeComboBox;
+    private TextField vehicleIdField;
+    private TextField manufacturerField;
+    private TextField modelField;
+    private TextField priceField;
 
     // Main GUI components
-    private JTextArea displayArea;      // Area for showing inventory and messages
-    private Choice vehicleTypeChoice;   // Dropdown for vehicle types
+    private TextArea displayArea;
+    private FileChooser fileChooser;
 
-    /**
-     * Constructor initializes the GUI and sets up the dealership management system
-     */
-    public DealershipGUI() {
-        this.manager = new DealershipManager();
-        initializeGUI();
-    }
+    @Override
+    public void start(Stage primaryStage) {
+        manager = new DealershipManager();
 
-    /**
-     * Sets up the main GUI layout and initializes all components
-     * Creates a three-part layout:
-     * 1. Header panel (top)
-     * 2. Input and button panels (center)
-     * 3. Display area (bottom)
-     */
-    private void initializeGUI() {
-        setupFrame();
-        JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
+        // Set up the main layout
+        BorderPane mainLayout = new BorderPane();
 
-        mainPanel.add(createHeaderPanel(), BorderLayout.NORTH);
-        mainPanel.add(createInputPanel(), BorderLayout.CENTER);
-        mainPanel.add(createButtonPanel(), BorderLayout.EAST);
-        mainPanel.add(createDisplayArea(), BorderLayout.SOUTH);
+        // Create header
+        VBox headerPane = createHeaderPanel();
+        mainLayout.setTop(headerPane);
 
-        add(mainPanel);
+        // Create center section with input fields and buttons
+        SplitPane centerPane = new SplitPane();
+        centerPane.getItems().addAll(createInputPanel(), createButtonPanel());
+        centerPane.setDividerPositions(0.6);
+
+        // Create display area with resizable capability
+        displayArea = createDisplayArea();
+        ScrollPane scrollPane = new ScrollPane(displayArea);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setPrefHeight(300);
+        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.ALWAYS);
+
+        // Make it resizable
+        SplitPane mainSplitPane = new SplitPane();
+        mainSplitPane.setOrientation(javafx.geometry.Orientation.VERTICAL);
+        mainSplitPane.getItems().addAll(centerPane, scrollPane);
+        mainSplitPane.setDividerPositions(0.6);
+        mainLayout.setCenter(mainSplitPane);
+
+        // Set up the scene
+        Scene scene = new Scene(mainLayout, 1000, 700);
+
+        // Configure the stage
+        primaryStage.setTitle(APP_TITLE);
+        primaryStage.setScene(scene);
+        primaryStage.show();
+
+        // Load initial data
         loadInitialInventory();
     }
 
     /**
-     * Sets up the main frame properties
-     * Added as separate method for better organization
+     * Creates the header panel with title
      */
-    private void setupFrame() {
-        setTitle("Dealership Management System");
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(800, 600);
+    private VBox createHeaderPanel() {
+        VBox header = new VBox();
+        header.setPadding(new Insets(15, 15, 15, 15));
+        String colorHex = String.format("#%02X%02X%02X",
+                (int)(THEME_COLOR.getRed() * 255),
+                (int)(THEME_COLOR.getGreen() * 255),
+                (int)(THEME_COLOR.getBlue() * 255));
+        header.setStyle("-fx-background-color: " + colorHex + ";");
+
+        Label titleLabel = new Label(APP_TITLE);
+        titleLabel.setFont(Font.font("Arial", FontWeight.BOLD, 24));
+        titleLabel.setTextFill(Color.WHITE);
+
+        header.getChildren().add(titleLabel);
+        return header;
     }
 
     /**
-     * Creates the header panel with gradient background and title
-     * Maintains original visual styling while improving code organization
+     * Creates the input panel with form fields
      */
-    private JPanel createHeaderPanel() {
-        JPanel headerPanel = new JPanel() {
-            @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                g.setColor(HEADER_COLOR);
-                g.fillRect(0, 0, getWidth(), 60);
-                g.setColor(Color.WHITE);
-                g.setFont(new Font("Arial", Font.BOLD, 24));
-                g.drawString("Vehicle Management System", 20, 40);
+    private GridPane createInputPanel() {
+        GridPane gridPane = new GridPane();
+        gridPane.setPadding(new Insets(20, 20, 20, 20));
+        gridPane.setVgap(10);
+        gridPane.setHgap(10);
+
+        // Initialize input fields
+        dealerIdField = new TextField();
+
+        // Initialize dealership dropdown
+        dealerIdComboBox = new ComboBox<>();
+        dealerIdComboBox.setPromptText("Select existing dealer");
+        dealerIdComboBox.setEditable(false);
+
+        // Create a HBox to hold both dealer ID options
+        HBox dealerSelectionBox = new HBox(10);
+        dealerSelectionBox.getChildren().addAll(dealerIdComboBox, dealerIdField);
+
+        // Add null/clear option to the dropdown
+        dealerIdComboBox.getItems().add("-- New Dealer --");
+
+        // Set up dealership dropdown listener
+        dealerIdComboBox.setOnAction(e -> {
+            if (dealerIdComboBox.getValue() != null) {
+                if (dealerIdComboBox.getValue().equals("-- New Dealer --")) {
+                    // Selected the "New Dealer" option
+                    dealerIdField.clear();
+                    dealerIdField.setDisable(false);
+                } else {
+                    // Selected an existing dealer
+                    dealerIdField.clear();
+                    dealerIdField.setDisable(true);
+                }
+            } else {
+                dealerIdField.setDisable(false);
             }
-        };
-        headerPanel.setPreferredSize(new Dimension(800, 60));
-        return headerPanel;
-    }
+        });
 
-    /**
-     * Creates and sets up the display area with scroll capability
-     * Extracted to separate method for better organization
-     */
-    private JScrollPane createDisplayArea() {
-        displayArea = new JTextArea();
-        displayArea.setEditable(false);
-        return new JScrollPane(displayArea);
-    }
+        // Set up dealerIdField listener to clear dropdown when text is entered
+        dealerIdField.textProperty().addListener((observable, oldValue, newValue) -> {
+            if (newValue != null && !newValue.isEmpty()) {
+                dealerIdComboBox.setValue(null);
+            }
+        });
 
-    /**
-     * Creates and organizes the input panel with labels and text fields
-     * Uses GridLayout for uniform spacing and alignment
-     * Improved to use arrays and loops for cleaner code
-     */
-    private JPanel createInputPanel() {
-        JPanel panel = new JPanel(new GridLayout(6, 2, 5, 5));
+        vehicleTypeComboBox = new ComboBox<>(FXCollections.observableArrayList(
+                "SUV", "Sedan", "Pickup", "Sports Car"));
+        vehicleTypeComboBox.setValue("SUV");
+        vehicleIdField = new TextField();
+        manufacturerField = new TextField();
+        modelField = new TextField();
+        priceField = new TextField();
 
-        // Create and store input fields
-        JTextField dealerIdField = new JTextField();
-        JTextField vehicleIdField = new JTextField();
-        JTextField manufacturerField = new JTextField();
-        JTextField modelField = new JTextField();
-        JTextField priceField = new JTextField();
+        // Create a large rent vehicle button
+        Button rentVehicleBtn = new Button("Rent Vehicle");
+        rentVehicleBtn.setPrefWidth(250);
+        rentVehicleBtn.setPrefHeight(45);
+        rentVehicleBtn.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-background-color: skyblue;");
+        rentVehicleBtn.setOnAction(e -> handleRentVehicle());
 
-        inputFields.addAll(Arrays.asList(
-                dealerIdField, vehicleIdField, manufacturerField, modelField, priceField
-        ));
+        // Style fields to be consistent size
+        dealerIdField.setPrefWidth(120);
+        dealerIdComboBox.setPrefWidth(120);
+        vehicleTypeComboBox.setPrefWidth(250);
+        vehicleIdField.setPrefWidth(250);
+        manufacturerField.setPrefWidth(250);
+        modelField.setPrefWidth(250);
+        priceField.setPrefWidth(250);
 
-        // Create vehicle type dropdown
-        vehicleTypeChoice = new Choice();
-        Arrays.asList("SUV", "Sedan", "Pickup", "Sports Car")
-                .forEach(vehicleTypeChoice::add);
+        // Add field labels
+        gridPane.add(new Label("Dealer ID:"), 0, 0);
+        gridPane.add(dealerSelectionBox, 1, 0);
 
-        // Add components to panel with labels
-        String[][] labelPairs = {
-                {"Dealer ID:", null},
-                {"Vehicle Type:", null},
-                {"Vehicle ID:", null},
-                {"Manufacturer:", null},
-                {"Model:", null},
-                {"Price:", null}
-        };
+        gridPane.add(new Label("Vehicle Type:"), 0, 1);
+        gridPane.add(vehicleTypeComboBox, 1, 1);
 
-        Component[] components = {
-                dealerIdField, vehicleTypeChoice, vehicleIdField,
-                manufacturerField, modelField, priceField
-        };
+        gridPane.add(new Label("Vehicle ID:"), 0, 2);
+        gridPane.add(vehicleIdField, 1, 2);
 
-        for (int i = 0; i < labelPairs.length; i++) {
-            panel.add(new JLabel(labelPairs[i][0]));
-            panel.add(components[i]);
-        }
+        gridPane.add(new Label("Manufacturer:"), 0, 3);
+        gridPane.add(manufacturerField, 1, 3);
 
-        return panel;
-    }
+        gridPane.add(new Label("Model:"), 0, 4);
+        gridPane.add(modelField, 1, 4);
 
-    /**
-     * Helper method to create buttons with consistent styling
-     * Added for code reusability and maintainability
-     */
-    private JButton createButton(String text, ActionListener action) {
-        JButton button = new JButton(text);
-        button.addActionListener(action);
-        return button;
+        gridPane.add(new Label("Price:"), 0, 5);
+        gridPane.add(priceField, 1, 5);
+
+        // Add rental button in row 6
+        gridPane.add(new Label(""), 0, 6);
+        gridPane.add(rentVehicleBtn, 1, 6);
+
+        return gridPane;
     }
 
     /**
      * Creates the button panel with all action buttons
-     * Adds action listeners to handle button clicks
-     * Improved to use helper method for button creation
      */
-    private JPanel createButtonPanel() {
-        JPanel panel = new JPanel(new GridLayout(6, 1, 5, 5));
+    private VBox createButtonPanel() {
+        VBox buttonPanel = new VBox(10);
+        buttonPanel.setPadding(new Insets(20, 20, 20, 20));
 
-        Arrays.asList(
-                createButton("Add Vehicle to Inventory", e -> handleAddVehicle()),
-                createButton("Remove Vehicle from Inventory", e -> handleRemoveVehicle()),
-                createButton("Enable Dealer Acquisition", e -> handleEnableAcquisition()),
-                createButton("Disable Dealer Acquisition", e -> handleDisableAcquisition()),
-                createButton("Export to export.json", e -> handleExportInventory()),
-                createButton("Clear export.json", e -> handleClearExport())
-        ).forEach(panel::add);
+        fileChooser = new FileChooser();
 
-        return panel;
+        // Create buttons with consistent styling
+        Button addVehicleBtn = createStyledButton("Add Vehicle");
+        addVehicleBtn.setOnAction(e -> handleAddVehicle());
+
+        Button removeVehicleBtn = createStyledButton("Remove Vehicle");
+        removeVehicleBtn.setOnAction(e -> handleRemoveVehicle());
+
+        Button returnVehicleBtn = createStyledButton("Return Vehicle");
+        returnVehicleBtn.setOnAction(e -> handleReturnVehicle());
+
+        Button transferVehicleBtn = createStyledButton("Transfer Vehicle");
+        transferVehicleBtn.setOnAction(e -> handleTransferVehicle());
+
+        Button importXmlBtn = createStyledButton("Import XML");
+        importXmlBtn.setOnAction(e -> handleImportXML());
+
+        Button enableAcquisitionBtn = createStyledButton("Enable Acquisition");
+        enableAcquisitionBtn.setOnAction(e -> handleEnableAcquisition());
+
+        Button disableAcquisitionBtn = createStyledButton("Disable Acquisition");
+        disableAcquisitionBtn.setOnAction(e -> handleDisableAcquisition());
+
+        Button exportInventoryBtn = createStyledButton("Export Inventory");
+        exportInventoryBtn.setOnAction(e -> handleExportInventory());
+
+        Button clearExportBtn = createStyledButton("Clear Export");
+        clearExportBtn.setOnAction(e -> handleClearExport());
+
+        buttonPanel.getChildren().addAll(
+                addVehicleBtn, removeVehicleBtn, returnVehicleBtn,
+                transferVehicleBtn, importXmlBtn, enableAcquisitionBtn,
+                disableAcquisitionBtn, exportInventoryBtn, clearExportBtn
+        );
+
+        return buttonPanel;
+    }
+
+    /**
+     * Creates a styled button with consistent look and feel
+     */
+    private Button createStyledButton(String text) {
+        Button button = new Button(text);
+        button.setPrefWidth(200);
+        button.setPrefHeight(35);
+        button.setStyle("-fx-font-size: 14px;");
+        return button;
+    }
+
+    /**
+     * Creates and sets up the display area
+     */
+    private TextArea createDisplayArea() {
+        TextArea area = new TextArea();
+        area.setEditable(false);
+        area.setWrapText(true);
+        area.setPrefHeight(300);
+        area.setFont(Font.font("Monospaced", 12));
+        return area;
     }
 
     /**
      * Loads initial inventory data from file if it exists
-     * Reads from inventory.json and updates the display
      */
     private void loadInitialInventory() {
         File initialFile = new File(INVENTORY_PATH);
         if (initialFile.exists()) {
             manager.readInventoryFile(initialFile);
             refreshDisplay();
+            updateDealerDropdown();
         }
     }
 
     /**
+     * Updates the dealer dropdown with current dealerships in the system
+     */
+    private void updateDealerDropdown() {
+        // Get all unique dealer IDs from current inventory
+        java.util.Set<String> dealerIds = new java.util.HashSet<>();
+
+        for (Vehicle vehicle : manager.getVehiclesForDisplay()) {
+            dealerIds.add(vehicle.getDealerId());
+        }
+
+        // Update the combo box
+        dealerIdComboBox.getItems().clear();
+        dealerIdComboBox.getItems().add("-- New Dealer --");
+        dealerIdComboBox.getItems().addAll(dealerIds);
+    }
+
+    /**
      * Updates the display area with current inventory information
-     * Formats the output for easy reading
-     * Improved to use StringBuilder and forEach for cleaner code
      */
     private void refreshDisplay() {
         StringBuilder sb = new StringBuilder("Current Inventory:\n\n");
 
-        manager.getVehiclesForDisplay().forEach(vehicle ->
-                sb.append(String.format("Type: %s, ID: %s, Manufacturer: %s, Model: %s, Price: $%.2f, Dealer: %s\n",
-                        vehicle.getClass().getSimpleName(),
-                        vehicle.getVehicleId(),
-                        vehicle.getManufacturer(),
-                        vehicle.getModel(),
-                        vehicle.getPrice(),
-                        vehicle.getDealerId()))
-        );
+        manager.getVehiclesForDisplay().forEach(vehicle -> {
+            String rentalStatus = vehicle.isRented() ? "RENTED" : "AVAILABLE";
+            if (vehicle instanceof SportsCar) {
+                rentalStatus = "NOT RENTABLE";
+            }
+
+            String dealerInfo = vehicle.getDealerId();
+            if (vehicle.getMetadata().containsKey("dealer_name")) {
+                dealerInfo += " (" + vehicle.getMetadata().get("dealer_name") + ")";
+            }
+
+            sb.append(String.format("Type: %s, ID: %s, Manufacturer: %s, Model: %s, Price: $%.2f, Dealer: %s, Status: %s\n",
+                    vehicle.getClass().getSimpleName(),
+                    vehicle.getVehicleId(),
+                    vehicle.getManufacturer(),
+                    vehicle.getModel(),
+                    vehicle.getPrice(),
+                    dealerInfo,
+                    rentalStatus));
+        });
 
         displayArea.setText(sb.toString());
     }
 
     /**
      * Validates all input fields before processing
-     * Checks for empty fields and valid price format
-     * Improved to use stream operations for cleaner validation
-     * @return boolean indicating if all fields are valid
      */
     private boolean validateFields() {
-        if (inputFields.stream().anyMatch(field -> field.getText().trim().isEmpty())) {
-            showMessage("Error: All fields must be filled out!");
-            return false;
+        StringBuilder errorMessage = new StringBuilder();
+
+        // Check for dealer ID (either from dropdown or text field)
+        String dealerId = getDealerId();
+        if (dealerId.isEmpty()) {
+            errorMessage.append("Dealer ID is required. Either select from dropdown or enter a new one.\n");
         }
 
-        try {
-            double price = Double.parseDouble(inputFields.get(4).getText().trim());
-            if (price <= 0) {
-                showMessage("Error: Price must be greater than 0!");
-                return false;
+        if (vehicleIdField.getText().trim().isEmpty()) {
+            errorMessage.append("Vehicle ID is required.\n");
+        }
+        if (manufacturerField.getText().trim().isEmpty()) {
+            errorMessage.append("Manufacturer is required.\n");
+        }
+        if (modelField.getText().trim().isEmpty()) {
+            errorMessage.append("Model is required.\n");
+        }
+        if (priceField.getText().trim().isEmpty()) {
+            errorMessage.append("Price is required.\n");
+        }
+
+        // Validate price format
+        if (!priceField.getText().trim().isEmpty()) {
+            try {
+                double price = Double.parseDouble(priceField.getText().trim());
+                if (price <= 0) {
+                    errorMessage.append("Price must be greater than 0!\n");
+                }
+            } catch (NumberFormatException e) {
+                errorMessage.append("Invalid price format! Enter a valid number.\n");
             }
-        } catch (NumberFormatException e) {
-            showMessage("Error: Invalid price format!");
+        }
+
+        if (errorMessage.length() > 0) {
+            showAlert(Alert.AlertType.ERROR, "Validation Error",
+                    "Please correct the following errors:", errorMessage.toString());
             return false;
         }
 
@@ -234,78 +380,78 @@ public class DealershipGUI extends JFrame {
     }
 
     /**
-     * Helper method to handle common operations with error handling
-     * Added for better error handling and code reuse
+     * Validates just dealer ID and vehicle ID fields
      */
-    private void handleDealershipOperation(String operationName, Runnable operation) {
-        if (!validateFields()) return;
-        try {
-            operation.run();
-        } catch (Exception ex) {
-            showMessage("Error " + operationName + ": " + ex.getMessage());
+    private boolean validateDealerAndVehicleIds() {
+        StringBuilder errorMessage = new StringBuilder();
+
+        String dealerId = getDealerId();
+        if (dealerId.isEmpty()) {
+            errorMessage.append("Dealer ID is required. Either select from dropdown or enter a new one.\n");
+        }
+        if (vehicleIdField.getText().trim().isEmpty()) {
+            errorMessage.append("Vehicle ID is required.\n");
+        }
+
+        if (errorMessage.length() > 0) {
+            showAlert(Alert.AlertType.ERROR, "Validation Error",
+                    "Please correct the following errors:", errorMessage.toString());
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Displays an alert dialog with the given information
+     */
+    private void showAlert(Alert.AlertType type, String title, String header, String content) {
+        Alert alert = new Alert(type);
+        alert.setTitle(title);
+        alert.setHeaderText(header);
+        alert.setContentText(content);
+        alert.showAndWait();
+    }
+
+    /**
+     * Displays a success message
+     */
+    private void showSuccess(String message) {
+        showAlert(Alert.AlertType.INFORMATION, "Success", null, message);
+    }
+
+    /**
+     * Displays an error message
+     */
+    private void showError(String message) {
+        showAlert(Alert.AlertType.ERROR, "Error", null, message);
+    }
+
+    /**
+     * Adds a message to the display area
+     */
+    private void showMessage(String message) {
+        displayArea.appendText("\n>>> " + message + "\n");
+    }
+
+    /**
+     * Returns the current dealer ID from either the dropdown or text field
+     */
+    private String getDealerId() {
+        if (dealerIdComboBox.getValue() != null &&
+                !dealerIdComboBox.getValue().isEmpty() &&
+                !dealerIdComboBox.getValue().equals("-- New Dealer --")) {
+            return dealerIdComboBox.getValue();
+        } else {
+            return dealerIdField.getText().trim();
         }
     }
 
     /**
-     * Handles the addition of a new vehicle to the inventory
-     * Validates input, creates vehicle object, and updates inventory
-     * Improved with common error handling
-     */
-    private void handleAddVehicle() {
-        handleDealershipOperation("adding vehicle", () -> {
-            String dealerId = inputFields.get(0).getText().trim();
-            Vehicle vehicle = createVehicleFromType();
-            if (vehicle == null) return;
-
-            vehicle.setVehicleId(inputFields.get(1).getText().trim());
-            vehicle.setManufacturer(inputFields.get(2).getText().trim());
-            vehicle.setModel(inputFields.get(3).getText().trim());
-            vehicle.setPrice(Double.parseDouble(inputFields.get(4).getText().trim()));
-            vehicle.setAcquisitionDate(new Date());
-            vehicle.setDealerId(dealerId);
-
-            File inventoryFile = new File(INVENTORY_PATH);
-            if (manager.addVehicleToInventory(vehicle, inventoryFile)) {
-                refreshDisplay();
-                clearInputFields();
-                showMessage("Vehicle added to inventory.json successfully!");
-            } else {
-                showMessage("Error: Cannot add vehicle - Acquisition is disabled for dealer " + dealerId);
-            }
-        });
-    }
-
-    /**
-     * Handles the removal of a vehicle from the inventory
-     * Validates input and updates inventory file
-     * Improved with common error handling
-     */
-    private void handleRemoveVehicle() {
-        handleDealershipOperation("removing vehicle", () -> {
-            String dealerId = inputFields.get(0).getText().trim();
-            String vehicleId = inputFields.get(1).getText().trim();
-            String manufacturer = inputFields.get(2).getText().trim();
-            String model = inputFields.get(3).getText().trim();
-            double price = Double.parseDouble(inputFields.get(4).getText().trim());
-
-            File inventoryFile = new File(INVENTORY_PATH);
-            if (manager.removeVehicleFromInventory(dealerId, vehicleId, manufacturer, model, price, inventoryFile)) {
-                refreshDisplay();
-                clearInputFields();
-                showMessage("Vehicle removed from inventory successfully!");
-            } else {
-                showMessage("Error: Vehicle not found or could not be removed!");
-            }
-        });
-    }
-
-    /**
      * Creates appropriate vehicle object based on selected type
-     * Improved to use switch expression for cleaner code
-     * @return Vehicle object of the selected type
      */
     private Vehicle createVehicleFromType() {
-        return switch (vehicleTypeChoice.getSelectedItem()) {
+        return switch (vehicleTypeComboBox.getValue()) {
             case "SUV" -> new SUV();
             case "Sedan" -> new Sedan();
             case "Pickup" -> new Pickup();
@@ -315,92 +461,390 @@ public class DealershipGUI extends JFrame {
     }
 
     /**
+     * Clears all input fields after successful operations
+     */
+    private void clearInputFields() {
+        dealerIdField.clear();
+        dealerIdField.setDisable(false);
+        dealerIdComboBox.setValue(null);
+        vehicleTypeComboBox.setValue("SUV");
+        vehicleIdField.clear();
+        manufacturerField.clear();
+        modelField.clear();
+        priceField.clear();
+    }
+
+    /**
+     * Gets available vehicles for a specific dealer
+     */
+    private java.util.List<String> getAvailableVehiclesForDealer(String dealerId) {
+        java.util.List<String> availableVehicles = new java.util.ArrayList<>();
+
+        for (Vehicle vehicle : manager.getVehiclesForDisplay()) {
+            if (vehicle.getDealerId().equals(dealerId) &&
+                    !(vehicle instanceof SportsCar) &&
+                    !vehicle.isRented()) {
+                availableVehicles.add(vehicle.getVehicleId() + " - " +
+                        vehicle.getManufacturer() + " " +
+                        vehicle.getModel());
+            }
+        }
+
+        return availableVehicles;
+    }
+
+    /**
+     * Gets the vehicle ID from a formatted vehicle string
+     */
+    private String getVehicleIdFromFormatted(String formattedVehicle) {
+        if (formattedVehicle == null || formattedVehicle.isEmpty()) return "";
+        int index = formattedVehicle.indexOf(" - ");
+        if (index > 0) {
+            return formattedVehicle.substring(0, index);
+        }
+        return formattedVehicle;
+    }
+
+    /**
+     * Handles the addition of a new vehicle to the inventory
+     */
+    private void handleAddVehicle() {
+        try {
+            if (!validateFields()) return;
+
+            String dealerId = getDealerId();
+            Vehicle vehicle = createVehicleFromType();
+            if (vehicle == null) return;
+
+            vehicle.setVehicleId(vehicleIdField.getText().trim());
+            vehicle.setManufacturer(manufacturerField.getText().trim());
+            vehicle.setModel(modelField.getText().trim());
+            vehicle.setPrice(Double.parseDouble(priceField.getText().trim()));
+            vehicle.setAcquisitionDate(new Date());
+            vehicle.setDealerId(dealerId);
+
+            File inventoryFile = new File(INVENTORY_PATH);
+            if (manager.addVehicleToInventory(vehicle, inventoryFile)) {
+                refreshDisplay();
+                updateDealerDropdown(); // Update dealer dropdown after adding
+                clearInputFields();
+                showSuccess("Vehicle added to inventory successfully!");
+            } else {
+                showError("Cannot add vehicle - Acquisition is disabled for dealer " + dealerId);
+            }
+        } catch (Exception ex) {
+            showError("Error adding vehicle: " + ex.getMessage());
+        }
+    }
+
+    /**
+     * Handles the removal of a vehicle from the inventory
+     */
+    private void handleRemoveVehicle() {
+        try {
+            if (!validateFields()) return;
+
+            String dealerId = getDealerId();
+            String vehicleId = vehicleIdField.getText().trim();
+            String manufacturer = manufacturerField.getText().trim();
+            String model = modelField.getText().trim();
+            double price = Double.parseDouble(priceField.getText().trim());
+
+            File inventoryFile = new File(INVENTORY_PATH);
+            if (manager.removeVehicleFromInventory(dealerId, vehicleId, manufacturer, model, price, inventoryFile)) {
+                refreshDisplay();
+                clearInputFields();
+                showSuccess("Vehicle removed from inventory successfully!");
+            } else {
+                showError("Vehicle not found, is rented, or could not be removed!");
+            }
+        } catch (Exception ex) {
+            showError("Error removing vehicle: " + ex.getMessage());
+        }
+    }
+
+    /**
+     * Handles renting a vehicle with a simpler data structure
+     */
+    private void handleRentVehicle() {
+        try {
+            // Create a custom dialog for rental
+            Dialog<RentalInfo> dialog = new Dialog<>();
+            dialog.setTitle("Rent Vehicle");
+            dialog.setHeaderText("Select vehicle and rental period");
+
+            // Set the button types
+            ButtonType confirmButtonType = new ButtonType("Confirm", ButtonBar.ButtonData.OK_DONE);
+            dialog.getDialogPane().getButtonTypes().addAll(confirmButtonType, ButtonType.CANCEL);
+
+            // Create the selection fields
+            GridPane grid = new GridPane();
+            grid.setHgap(10);
+            grid.setVgap(10);
+            grid.setPadding(new Insets(20, 150, 10, 10));
+
+            // Create dealer dropdown
+            ComboBox<String> rentalDealerCombo = new ComboBox<>();
+            rentalDealerCombo.setPromptText("Select a dealer");
+            java.util.Set<String> dealerIds = new java.util.HashSet<>();
+
+            for (Vehicle vehicle : manager.getVehiclesForDisplay()) {
+                dealerIds.add(vehicle.getDealerId());
+            }
+            rentalDealerCombo.getItems().addAll(dealerIds);
+
+            // Create vehicle dropdown (initially empty)
+            ComboBox<String> vehicleCombo = new ComboBox<>();
+            vehicleCombo.setPromptText("Select a vehicle");
+
+            // Update vehicle dropdown when dealer changes
+            rentalDealerCombo.setOnAction(e -> {
+                String selectedDealer = rentalDealerCombo.getValue();
+                if (selectedDealer != null) {
+                    vehicleCombo.getItems().clear();
+                    vehicleCombo.getItems().addAll(getAvailableVehiclesForDealer(selectedDealer));
+                }
+            });
+
+            // Date fields
+            TextField startDateField = new TextField();
+            startDateField.setPromptText("MM/DD/YYYY");
+            TextField endDateField = new TextField();
+            endDateField.setPromptText("MM/DD/YYYY");
+
+            grid.add(new Label("Dealer:"), 0, 0);
+            grid.add(rentalDealerCombo, 1, 0);
+            grid.add(new Label("Vehicle:"), 0, 1);
+            grid.add(vehicleCombo, 1, 1);
+            grid.add(new Label("Start Date:"), 0, 2);
+            grid.add(startDateField, 1, 2);
+            grid.add(new Label("End Date:"), 0, 3);
+            grid.add(endDateField, 1, 3);
+
+            dialog.getDialogPane().setContent(grid);
+
+            // Convert the result using a custom class instead of nested Pairs
+            dialog.setResultConverter(dialogButton -> {
+                if (dialogButton == confirmButtonType) {
+                    RentalInfo info = new RentalInfo();
+                    info.dealerId = rentalDealerCombo.getValue();
+                    info.vehicleId = getVehicleIdFromFormatted(vehicleCombo.getValue());
+                    info.startDate = startDateField.getText();
+                    info.endDate = endDateField.getText();
+                    return info;
+                }
+                return null;
+            });
+
+            Optional<RentalInfo> result = dialog.showAndWait();
+
+            result.ifPresent(info -> {
+                if (info.dealerId == null || info.vehicleId == null ||
+                        info.startDate.isEmpty() || info.endDate.isEmpty()) {
+                    showError("All fields are required");
+                    return;
+                }
+
+                File inventoryFile = new File(INVENTORY_PATH);
+                boolean success = manager.rentVehicle(
+                        info.dealerId, info.vehicleId, info.startDate, info.endDate, inventoryFile);
+
+                if (success) {
+                    refreshDisplay();
+                    showSuccess("Vehicle rented successfully");
+                } else {
+                    showError("Failed to rent vehicle. Vehicle may be already rented or not found.");
+                }
+            });
+        } catch (Exception ex) {
+            showError("Error renting vehicle: " + ex.getMessage());
+        }
+    }
+
+    /**
+     * Handles returning a rented vehicle
+     */
+    private void handleReturnVehicle() {
+        try {
+            if (!validateDealerAndVehicleIds()) return;
+
+            String dealerId = getDealerId();
+            String vehicleId = vehicleIdField.getText().trim();
+
+            File inventoryFile = new File(INVENTORY_PATH);
+            boolean success = manager.returnVehicle(dealerId, vehicleId, inventoryFile);
+
+            if (success) {
+                refreshDisplay();
+                showSuccess("Vehicle returned successfully");
+            } else {
+                showError("Failed to return vehicle. Verify the vehicle is rented.");
+            }
+        } catch (Exception ex) {
+            showError("Error returning vehicle: " + ex.getMessage());
+        }
+    }
+
+    /**
+     * Handles transferring a vehicle between dealerships
+     */
+    private void handleTransferVehicle() {
+        try {
+            if (!validateDealerAndVehicleIds()) return;
+
+            String sourceDealerId = getDealerId();
+            String vehicleId = vehicleIdField.getText().trim();
+
+            // Create input dialog for target dealer
+            TextInputDialog inputDialog = new TextInputDialog();
+            inputDialog.setTitle("Transfer Vehicle");
+            inputDialog.setHeaderText("Enter target dealer information");
+            inputDialog.setContentText("Target Dealer ID:");
+
+            Optional<String> result = inputDialog.showAndWait();
+
+            result.ifPresent(targetDealerId -> {
+                if (targetDealerId.isEmpty()) {
+                    showError("Target Dealer ID is required");
+                    return;
+                }
+
+                File inventoryFile = new File(INVENTORY_PATH);
+                boolean success = manager.transferVehicle(sourceDealerId, targetDealerId, vehicleId, inventoryFile);
+
+                if (success) {
+                    refreshDisplay();
+                    showSuccess("Vehicle transferred successfully");
+                } else {
+                    showError("Failed to transfer vehicle. Check all IDs and make sure the vehicle isn't rented.");
+                }
+            });
+        } catch (Exception ex) {
+            showError("Error transferring vehicle: " + ex.getMessage());
+        }
+    }
+
+    /**
+     * Handles importing vehicles from XML file
+     */
+    private void handleImportXML() {
+        try {
+            fileChooser.setTitle("Open XML File");
+            File selectedFile = fileChooser.showOpenDialog(null);
+
+            if (selectedFile != null) {
+                File inventoryFile = new File(INVENTORY_PATH);
+                int importCount = manager.importXMLFile(selectedFile, inventoryFile);
+
+                if (importCount > 0) {
+                    refreshDisplay();
+                    showSuccess("Successfully imported " + importCount + " vehicles from XML");
+                } else {
+                    showMessage("No vehicles were imported from XML");
+                }
+            }
+        } catch (Exception ex) {
+            showError("Error importing XML: " + ex.getMessage());
+        }
+    }
+
+    /**
      * Handles enabling acquisition for a dealer
-     * Requires valid dealer ID
      */
     private void handleEnableAcquisition() {
-        String dealerId = inputFields.get(0).getText().trim();
+        String dealerId = getDealerId();
         if (dealerId.isEmpty()) {
-            showMessage("Error: Dealer ID is required to enable acquisition!");
+            showError("Dealer ID is required to enable acquisition!");
             return;
         }
+
         if (manager.enableAcquisition(dealerId)) {
-            showMessage("Acquisition enabled for dealer: " + dealerId);
+            showSuccess("Acquisition enabled for dealer: " + dealerId);
         }
     }
 
     /**
      * Handles disabling acquisition for a dealer
-     * Requires valid dealer ID
      */
     private void handleDisableAcquisition() {
-        String dealerId = inputFields.get(0).getText().trim();
+        String dealerId = getDealerId();
         if (dealerId.isEmpty()) {
-            showMessage("Error: Dealer ID is required to disable acquisition!");
+            showError("Dealer ID is required to disable acquisition!");
             return;
         }
+
         if (manager.disableAcquisition(dealerId)) {
-            showMessage("Acquisition disabled for dealer: " + dealerId);
+            showSuccess("Acquisition disabled for dealer: " + dealerId);
         }
     }
 
     /**
      * Handles exporting current inventory to export.json
-     * Validates file existence and handles errors
      */
     private void handleExportInventory() {
         File inventoryFile = new File(INVENTORY_PATH);
         File exportFile = new File(EXPORT_PATH);
 
         if (!inventoryFile.exists()) {
-            showMessage("Error: inventory.json not found!");
+            showError("inventory.json not found!");
             return;
         }
 
         try {
             if (manager.exportInventoryToExport(inventoryFile, exportFile)) {
-                showMessage("Successfully exported to export.json");
+                showSuccess("Successfully exported to export.json");
             } else {
-                showMessage("Failed to export: No vehicles found in inventory");
+                showError("Failed to export: No vehicles found in inventory");
             }
         } catch (Exception e) {
-            showMessage("Error during export: " + e.getMessage());
+            showError("Error during export: " + e.getMessage());
         }
     }
 
     /**
      * Handles clearing the export.json file
-     * Creates empty inventory in export file
      */
     private void handleClearExport() {
         try {
             manager.clearExportFile(new File(EXPORT_PATH));
-            showMessage("export.json has been cleared");
+            showSuccess("export.json has been cleared");
         } catch (Exception e) {
-            showMessage("Error clearing export.json: " + e.getMessage());
+            showError("Error clearing export.json: " + e.getMessage());
         }
     }
 
     /**
-     * Clears all input fields after successful operations
-     * Improved to use forEach for cleaner code
+     * Simple class to hold rental information
      */
-    private void clearInputFields() {
-        inputFields.forEach(field -> field.setText(""));
-        vehicleTypeChoice.select(0);
+    private static class RentalInfo {
+        public String dealerId;
+        public String vehicleId;
+        public String startDate;
+        public String endDate;
     }
 
     /**
-     * Displays messages in the display area
-     * @param message The message to display
+     * Inner class to hold a pair of values
      */
-    private void showMessage(String message) {
-        displayArea.append("\n>>> " + message + "\n");
+    private static class Pair<K, V> {
+        private final K key;
+        private final V value;
+
+        public Pair(K key, V value) {
+            this.key = key;
+            this.value = value;
+        }
+
+        public K getKey() {
+            return key;
+        }
+
+        public V getValue() {
+            return value;
+        }
+    }
+
+    public static void main(String[] args) {
+        launch(args);
     }
 }
-
-/*
- * Original Authors: Kenan & Nala
- * This code represents a collaborative effort between human developers with partial AI assistance
- * The core functionality and implementation was created by Kenan & Nala
- */
