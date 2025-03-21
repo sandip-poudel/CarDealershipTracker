@@ -1,15 +1,10 @@
 package org.example;
 
-import java.awt.EventQueue;
+import javafx.application.Application;
 
 public class Main {
     public static void main(String[] args) {
-        // Create and show GUI on the Event Dispatch Thread
-        EventQueue.invokeLater(() -> {
-            DealershipGUI gui = new DealershipGUI();
-            gui.setVisible(true);
-        });
+        // Launch the JavaFX application
+        Application.launch(DealershipJavaFXGUI.class, args);
     }
 }
-
-// Author: Sandip Poudel
