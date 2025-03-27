@@ -1,5 +1,1 @@
-This is a Car Dealership Tracker software that is capable of tracking multiple car dealerships at once. When provided with a JSON file, it will parse the provided JSON, make necessary addition of record and export the JSON file. 
-This project is for ICS Class 372-02 Object Oriented Design and Implementation.
-Group members: Nala, Kenan, Ilyas, and Sandip. 
-
-Note for case sensitivity: Name the file name "CarDealershipTracker".
+This Java application manages multiple car dealerships with inventory tracking, rentals, and vehicle transfers. Key features include support for different vehicle types (SUV, Sedan, Pickup, Sports Car), a rental system with date tracking, XML/JSON import/export capabilities, and a comprehensive JavaFX GUI with search functionality and a statistics dashboard. The application allows users to add, remove, and transfer vehicles between dealerships, toggle vehicle acquisition permissions, and switch between light and dark themes. Data persistence is handled through JSON files, with comprehensive JUnit tests ensuring reliability. Originally developed for ICS Class 372-02 Object Oriented Design and Implementation by team members Nala, Kenan, Ilyas, and Sandip. Note: File names are case-sensitive; use "CarDealershipTracker" for the project name.
