@@ -113,6 +113,16 @@ public class DealershipManager {
      * @param inventoryFile The file where the inventory is stored
      * @return  true if the vehicle was removed, otherwise false
      */
+    /**
+     * Removes a vehicle from inventory and dealership lists.
+     * @param dealerId The unique id of a dealership
+     * @param vehicleId The id of the vehicle you want removed
+     * @param manufacturer  The manufacturer of the vehicle
+     * @param model The model of the vehicle
+     * @param price The price of the vehicle
+     * @param inventoryFile The file where the inventory is stored
+     * @return  true if the vehicle was removed, otherwise false
+     */
     public boolean removeVehicleFromInventory(String dealerId, String vehicleId, String manufacturer,
                                               String model, double price, File inventoryFile) {
         // Find the dealership
@@ -142,10 +152,25 @@ public class DealershipManager {
             return false;
         }
 
-        // Remove vehicle from dealership list
-        List<Vehicle> vehicles = new ArrayList<>(dealership.getVehicles());
-        vehicles.remove(vehicleToRemove);
-        dealerships.put(dealerId, dealership);
+        // Create a new dealership instance with the same ID and name
+        Dealership updatedDealership = new Dealership(dealerId, dealership.getName());
+
+        // Set acquisition state based on original dealership
+        if (dealership.isAcquisitionEnabled()) {
+            updatedDealership.enableAcquisition();
+        } else {
+            updatedDealership.disableAcquisition();
+        }
+
+        // Add all vehicles except the one to remove
+        for (Vehicle v : dealership.getVehicles()) {
+            if (!v.getVehicleId().equals(vehicleToRemove.getVehicleId())) {
+                updatedDealership.addVehicle(v);
+            }
+        }
+
+        // Replace the old dealership with the updated one
+        dealerships.put(dealerId, updatedDealership);
 
         // Save updated state
         saveState(inventoryFile);
@@ -158,8 +183,22 @@ public class DealershipManager {
      * @param exportFile The destination export file
      * @return true if export is successful, otherwise false
      */
+    /**
+     * Exports the inventory to an external file
+     * @param inventoryFile The inventory file
+     * @param exportFile The destination export file
+     * @return true if export is successful, otherwise false
+     */
     public boolean exportInventoryToExport(File inventoryFile, File exportFile) {
+        // First try to read from file
         List<Vehicle> inventory = jsonFileHandler.readInventory(inventoryFile);
+
+        // If no vehicles in file, check in-memory vehicles
+        if (inventory.isEmpty()) {
+            inventory = getVehiclesForDisplay();
+        }
+
+        // If still no vehicles, return false
         if (inventory.isEmpty()) {
             System.out.println("No vehicles to export.");
             return false;
